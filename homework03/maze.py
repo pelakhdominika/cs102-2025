@@ -36,19 +36,25 @@ def bin_tree_maze(
 
     if not random_exit:
         grid[rows - 1][0] = "X"
-        grid[rows - 2][0] = " "
+        if rows > 1 and grid[rows - 2][0] == "■":
+            grid[rows - 2][0] = " "
 
         grid[0][cols - 1] = "X"
-        grid[0][cols - 2] = " "
+        if cols > 1 and grid[0][cols - 2] == "■":
+            grid[0][cols - 2] = " "
 
     return grid
 
 
 def get_exits(grid: List[List[Union[str, int]]]) -> List[Tuple[int, int]]:
-    exits = []
+    if grid is None:
+        return []
 
-    for i in range(len(grid)):
-        for j in range(len(grid[0])):
+    exits = []
+    rows = len(grid)
+
+    for i in range(rows):
+        for j in range(len(grid[i])):
             if grid[i][j] == "X":
                 exits.append((i, j))
 
@@ -57,6 +63,9 @@ def get_exits(grid: List[List[Union[str, int]]]) -> List[Tuple[int, int]]:
 
 def encircled_exit(grid: List[List[Union[str, int]]],
                    coord: Tuple[int, int]) -> bool:
+    if grid is None:
+        return True
+
     x, y = coord
     rows = len(grid)
     cols = len(grid[0])
@@ -75,123 +84,108 @@ def encircled_exit(grid: List[List[Union[str, int]]],
     return passable == 0
 
 
-def wave_algorithm(grid, start, end):
+def bfs_find_path(grid, start, end):
+    if grid is None:
+        return None
+
     rows = len(grid)
     cols = len(grid[0])
 
-    wave_grid = [[-1 for _ in range(cols)] for _ in range(rows)]
+    visited = [[False] * cols for _ in range(rows)]
+    parent = [[None] * cols for _ in range(rows)]
 
-    for i in range(rows):
-        for j in range(cols):
-            if grid[i][j] == "■":
-                wave_grid[i][j] = -2
-
-    sx, sy = start
-    ex, ey = end
-
-    wave_grid[sx][sy] = 0
-    queue = [(sx, sy)]
+    queue = [start]
+    visited[start[0]][start[1]] = True
 
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
     while queue:
         x, y = queue.pop(0)
 
-        if (x, y) == (ex, ey):
-            break
+        if (x, y) == end:
+            path = []
+            while (x, y) != start:
+                path.append((x, y))
+                x, y = parent[x][y]
+            path.append(start)
+            path.reverse()
+            return path
 
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
 
             if 0 <= nx < rows and 0 <= ny < cols:
-                if wave_grid[nx][ny] == -1:
-                    wave_grid[nx][ny] = wave_grid[x][y] + 1
+                if (grid[nx][ny] == " " or grid[nx][ny] == "X") and not visited[nx][ny]:
+                    visited[nx][ny] = True
+                    parent[nx][ny] = (x, y)
                     queue.append((nx, ny))
 
-    if wave_grid[ex][ey] == -1:
-        return None
-
-    path = []
-    x, y = ex, ey
-
-    while (x, y) != (sx, sy):
-        path.append((x, y))
-
-        for dx, dy in directions:
-            nx, ny = x + dx, y + dy
-
-            if 0 <= nx < rows and 0 <= ny < cols:
-                if wave_grid[nx][ny] == wave_grid[x][y] - 1:
-                    x, y = nx, ny
-                    break
-
-    path.append((sx, sy))
-    path.reverse()
-    return path
+    return None
 
 
 def solve_maze(grid):
+    if grid is None:
+        return None, None
+
     exits = get_exits(grid)
 
-    if len(exits) != 2:
+    if len(exits) < 2:
         return grid, None
 
-    entry, exit_cell = exits[0], exits[1]
+    start, end = exits[0], exits[1]
 
-    if encircled_exit(grid, entry) or encircled_exit(grid, exit_cell):
-        return grid, None
-
-    path = wave_algorithm(grid, entry, exit_cell)
+    path = bfs_find_path(grid, start, end)
 
     return grid, path
 
 
 def add_path_to_grid(grid, path):
-    if path:
-        for i, j in path:
-            if grid[i][j] != "X":
-                grid[i][j] = "•"
+    if grid is None or path is None:
+        return grid
+
+    for (x, y) in path:
+        if grid[x][y] != "X":
+            grid[x][y] = "•"
+
+    return grid
+
+
+def remove_wall(grid, coord):
+    if grid is None:
+        return grid
+
+    x, y = coord
+    if 0 <= x < len(grid) and 0 <= y < len(grid[0]):
+        grid[x][y] = " "
+
     return grid
 
 
 if __name__ == "__main__":
-    print("=== Тест: Маленький лабиринт 7x7 ===")
-    GRID = bin_tree_maze(7, 7, random_exit=False)
+    print("=== Тестирование ===")
 
-    print("Лабиринт:")
-    for row in GRID:
-        print(' '.join(str(cell) for cell in row))
+    try:
+        GRID = bin_tree_maze(15, 15, random_exit=False)
 
-    exits = get_exits(GRID)
-    print(f"\nВходы/выходы: {exits}")
+        if GRID is None:
+            print("Ошибка: bin_tree_maze вернул None")
+        else:
+            print("Лабиринт сгенерирован успешно")
+            print(f"Размер: {len(GRID)}x{len(GRID[0])}")
 
-    print("\n=== Поиск пути ===")
-    MAZE, PATH = solve_maze(GRID)
+            exits = get_exits(GRID)
+            print(f"Найдено выходов: {len(exits)}")
 
-    if PATH:
-        print(f"✓ Путь найден! Длина: {len(PATH)}")
-        print(f"Координаты пути: {PATH}")
+            MAZE, PATH = solve_maze(GRID)
 
-        maze_with_path = deepcopy(MAZE)
-        maze_with_path = add_path_to_grid(maze_with_path, PATH)
+            if PATH:
+                print(f"Путь найден! Длина: {len(PATH)}")
+                MAZE = add_path_to_grid(MAZE, PATH)
+            else:
+                print("Путь не найден")
 
-        print("\n=== Лабиринт с путем ===")
-        for row in maze_with_path:
-            print(' '.join(str(cell) for cell in row))
-    else:
-        print("✗ Путь не найден!")
+    except Exception as e:
+        print(f"Ошибка при тестировании: {e}")
+        import traceback
 
-        print("\n=== Отладка ===")
-        print("Проверка проходимости входа/выхода:")
-        for exit_coord in exits:
-            x, y = exit_coord
-            print(f"\nКлетка {exit_coord}: {GRID[x][y]}")
-            print(f"Соседи:")
-            if x > 0:
-                print(f"  Вверх ({x - 1}, {y}): {GRID[x - 1][y]}")
-            if x < len(GRID) - 1:
-                print(f"  Вниз ({x + 1}, {y}): {GRID[x + 1][y]}")
-            if y > 0:
-                print(f"  Влево ({x}, {y - 1}): {GRID[x][y - 1]}")
-            if y < len(GRID[0]) - 1:
-                print(f"  Вправо ({x}, {y + 1}): {GRID[x][y + 1]}")
+        traceback.print_exc()
