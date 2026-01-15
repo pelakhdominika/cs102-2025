@@ -1,8 +1,6 @@
-
 def encrypt_vigenere(plaintext: str, keyword: str) -> str:
     """
     Encrypts plaintext using a Vigenere cipher.
-
     >>> encrypt_vigenere("PYTHON", "A")
     'PYTHON'
     >>> encrypt_vigenere("python", "a")
@@ -11,30 +9,28 @@ def encrypt_vigenere(plaintext: str, keyword: str) -> str:
     'LXFOPVEFRNHR'
     """
     ciphertext = ""
-    keyword_repeated = (keyword * (len(plaintext) // len(keyword))) + keyword[:len(plaintext) % len(keyword)]
-   
-    for i in range(len(plaintext)):
-       
-        if plaintext[i].isalpha():
-           
-            shift = ord(keyword_repeated[i].upper()) - ord('A')
-            if plaintext[i].isupper():
-                ciphertext += chr((ord(plaintext[i]) + shift - ord('A')) % 26 + ord('A'))
-            else:
-                ciphertext += chr((ord(plaintext[i]) + shift - ord('a')) % 26 + ord('a'))
-        else:
-            ciphertext += plaintext[i]
+    extended_keyword = (keyword * (len(plaintext) // len(keyword) + 1))[: len(plaintext)]
 
+    num_A = ord("A")
+    num_Z = ord("Z")
+    alph = 26
+    for pos, char in enumerate(plaintext):
+        shift = ord(extended_keyword[pos].upper()) - num_A
+        is_lowercase = not char.isupper()
+        char_upper = char.upper()
+        if char_upper.isalpha():
+            code = ord(char_upper) + shift
+            if code > num_Z:
+                code -= alph
+            ciphertext += chr(code).lower() if is_lowercase else chr(code)
+        else:
+            ciphertext += char
     return ciphertext
 
-print(encrypt_vigenere("PYTHON", "A"))
-print(encrypt_vigenere("python", "a"))
-print(encrypt_vigenere("ATTACKATDAWN", "LEMON"))
 
 def decrypt_vigenere(ciphertext: str, keyword: str) -> str:
     """
     Decrypts a ciphertext using a Vigenere cipher.
-
     >>> decrypt_vigenere("PYTHON", "A")
     'PYTHON'
     >>> decrypt_vigenere("python", "a")
@@ -43,23 +39,17 @@ def decrypt_vigenere(ciphertext: str, keyword: str) -> str:
     'ATTACKATDAWN'
     """
     plaintext = ""
-    keyword_repeated = (keyword * (len(ciphertext) // len(keyword))) + keyword[:len(ciphertext) % len(keyword)]
-
-    for i in range(len(ciphertext)):
-
-         if ciphertext[i].isalpha():
-
-             shift = ord(keyword_repeated[i].upper()) - ord('A')
-             if ciphertext[i].isupper():
-                 plaintext += chr((ord(ciphertext[i]) - shift - ord('A')) % 26 + ord('A'))
-             else:
-                 plaintext += chr((ord(ciphertext[i]) - shift - ord('a')) % 26 + ord('a'))
-         else:
-             plaintext += ciphertext[i]
-
+    extended_keyword = (keyword * (len(ciphertext) // len(keyword) + 1))[: len(ciphertext)]
+    num_A = 65
+    for pos, char in enumerate(ciphertext):
+        shift = ord(extended_keyword[pos].upper()) - num_A
+        is_lowercase = not char.isupper()
+        char_upper = char.upper()
+        if char_upper.isalpha():
+            code = ord(char_upper) - shift
+            if code < num_A:
+                code += 26
+            plaintext += chr(code).lower() if is_lowercase else chr(code)
+        else:
+            plaintext += char
     return plaintext
-
-print()
-print(decrypt_vigenere("PYTHON", "A"))
-print(decrypt_vigenere("python", "a"))
-print(decrypt_vigenere("LXFOPVEFRNHR", "LEMON"))
