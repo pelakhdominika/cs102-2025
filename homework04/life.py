@@ -1,6 +1,10 @@
 import pathlib
 import random
 import typing as tp
+from copy import deepcopy
+
+import pygame
+from pygame.locals import *
 
 Cell = tp.Tuple[int, int]
 Cells = tp.List[int]
@@ -16,107 +20,83 @@ class GameOfLife:
     ) -> None:
         # Размер клеточного поля
         self.rows, self.cols = size
-
         # Предыдущее поколение клеток
         self.prev_generation = self.create_grid()
-
         # Текущее поколение клеток
         self.curr_generation = self.create_grid(randomize=randomize)
-
         # Максимальное число поколений
         self.max_generations = max_generations
-
         # Текущее число поколений
         self.generations = 1
 
     def create_grid(self, randomize: bool = False) -> Grid:
-        grid: Grid = []
-        for _ in range(self.rows):
-            row: Cells = []
-            for _ in range(self.cols):
-                if randomize:
-                    row.append(random.randint(0, 1))
-                else:
-                    row.append(0)
-            grid.append(row)
+        if randomize:
+            grid = [[random.randint(0, 1) for _ in range(self.cols)] for _ in range(self.rows)]
+        else:
+            grid = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
         return grid
 
     def get_neighbours(self, cell: Cell) -> Cells:
-        neighbours: Cells = []
-        y, x = cell
-
-        for dy in (-1, 0, 1):
-            for dx in (-1, 0, 1):
-                if dy == 0 and dx == 0:
-                    continue
-
-                ny = y + dy
-                nx = x + dx
-
-                if 0 <= ny < self.rows and 0 <= nx < self.cols:
-                    neighbours.append(self.curr_generation[ny][nx])
-
+        neighbours = []
+        x, y = cell
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        for i, j in directions:
+            if 0 <= x + i < self.rows and 0 <= y + j < self.cols:
+                neighbours.append(self.curr_generation[x + i][y + j])
         return neighbours
 
     def get_next_generation(self) -> Grid:
-        new_grid: Grid = []
-
-        for y in range(self.rows):
-            new_row: Cells = []
-            for x in range(self.cols):
-                alive_neighbours = sum(self.get_neighbours((y, x)))
-
-                if self.curr_generation[y][x] == 1:
-                    if alive_neighbours in (2, 3):
-                        new_row.append(1)
-                    else:
-                        new_row.append(0)
+        next_generation = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
+        for i in range(self.rows):
+            for j in range(self.cols):
+                cells = sum(self.get_neighbours((i, j)))
+                if (self.curr_generation[i][j] == 1 and cells in (2, 3)) or (
+                    self.curr_generation[i][j] == 0 and cells == 3
+                ):
+                    next_generation[i][j] = 1
                 else:
-                    if alive_neighbours == 3:
-                        new_row.append(1)
-                    else:
-                        new_row.append(0)
-
-            new_grid.append(new_row)
-
-        return new_grid
+                    next_generation[i][j] = 0
+        return next_generation
 
     def step(self) -> None:
-        self.prev_generation = [row[:] for row in self.curr_generation]
+        """
+        Выполнить один шаг игры.
+        """
+        self.prev_generation = deepcopy(self.curr_generation)
         self.curr_generation = self.get_next_generation()
         self.generations += 1
 
     @property
     def is_max_generations_exceeded(self) -> bool:
-        if self.max_generations is None:
-            return False
-        return self.generations >= self.max_generations
+        """
+        Не превысило ли текущее число поколений максимально допустимое.
+        """
+        return self.generations >= self.max_generations if self.max_generations is not None else False
 
     @property
     def is_changing(self) -> bool:
+        """
+        Изменилось ли состояние клеток с предыдущего шага.
+        """
         return self.curr_generation != self.prev_generation
 
     @staticmethod
     def from_file(filename: pathlib.Path) -> "GameOfLife":
-        with open(filename, "r") as file:
-            lines = [line.strip() for line in file.readlines() if line.strip()]
-
-        rows = len(lines)
-        cols = len(lines[0])
-
-        life = GameOfLife((rows, cols), randomize=False)
-
-        grid: Grid = []
-        for line in lines:
-            row: Cells = [int(ch) for ch in line]
-            grid.append(row)
-
-        life.curr_generation = grid
-        life.prev_generation = life.create_grid()
-
-        return life
+        """
+        Прочитать состояние клеток из указанного файла.
+        """
+        with open(filename) as f:
+            grid = [[1 if elem == "1" else 0 for elem in line.strip()] for line in f if line.strip()]
+        rows, cols = len(grid), len(grid[0])
+        game = GameOfLife(size=(rows, cols))
+        game.curr_generation = grid
+        return game
 
     def save(self, filename: pathlib.Path) -> None:
+        """
+        Сохранить текущее состояние клеток в указанный файл.
+        """
         with open(filename, "w") as file:
-            for row in self.curr_generation:
-                file.write("".join(str(cell) for cell in row) + "\n")
+            for line in self.curr_generation:
+                row = "".join(str(elem) for elem in line)
+                file.write(row + "\n")
