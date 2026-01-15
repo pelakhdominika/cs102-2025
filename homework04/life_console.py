@@ -14,32 +14,33 @@ class Console(UI):
 
     def draw_grid(self, screen) -> None:
         """Отобразить состояние клеток."""
-        for y in range(self.life.rows):
-            for x in range(self.life.cols):
-                cell = self.life.curr_generation[y][x]
-                char = "█" if cell == 1 else " "
-                screen.addch(y + 1, x + 1, char)
+        height, width = screen.getmaxyx()
+        max_rows = min(self.life.rows, height - 2)
+        max_cols = min(self.life.cols, width - 2)
+        for i in range(max_rows):
+            row_str = ""
+            for j in range(max_cols):
+                if self.life.curr_generation[i][j] == 1:
+                    row_str += "*"
+                else:
+                    row_str += " "
+            if i + 1 < height - 1:
+                screen.addstr(i + 1, 1, row_str)
 
     def run(self) -> None:
         screen = curses.initscr()
-        curses.curs_set(0)
-        screen.nodelay(True)
-
         try:
-            while self.life.is_changing and not self.life.is_max_generations_exceeded:
+            screen.nodelay(True)
+            screen.timeout(500)
+            while True:
                 screen.clear()
                 self.draw_borders(screen)
                 self.draw_grid(screen)
+                screen.addstr(0, 2, f"Gen: {self.life.generations}")
+                screen.addstr(0, 40, "Press 'q' to quit")
                 screen.refresh()
-
-                key = screen.getch()
-                if key == ord("q"):
-                    break
-
                 self.life.step()
-                curses.napms(100)
+                if screen.getch() in (ord("q"), ord("Q"), 27):
+                    break
         finally:
             curses.endwin()
-
-
-# .
