@@ -15,7 +15,7 @@ class GameOfLife:
         self,
         size: tp.Tuple[int, int],
         randomize: bool = True,
-        max_generations: float = float("inf"),
+        max_generations: tp.Optional[float] = float("inf"),
     ) -> None:
         # Размер клеточного поля
         self.rows, self.cols = size
@@ -29,38 +29,46 @@ class GameOfLife:
         self.generations = 1
 
     def create_grid(self, randomize: bool = False) -> Grid:
-        if randomize:
-            return [[random.randint(0, 1) for _ in range(self.cols)] for _ in range(self.rows)]
-        return [[0 for _ in range(self.cols)] for _ in range(self.rows)]
+        grid = []
+        for i in range(self.rows):
+            row = []
+            for j in range(self.cols):
+                if randomize:
+                    row.append(random.randint(0, 1))
+                else:
+                    row.append(0)
+            grid.append(row)
+        return grid
 
     def get_neighbours(self, cell: Cell) -> Cells:
-        r, c = cell
+        row, col = cell
         neighbours = []
-
         for dr in (-1, 0, 1):
             for dc in (-1, 0, 1):
                 if dr == 0 and dc == 0:
                     continue
-
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                    neighbours.append(self.curr_generation[nr][nc])
-
+                r, c = row + dr, col + dc
+                if 0 <= r < self.rows and 0 <= c < self.cols:
+                    neighbours.append(self.curr_generation[r][c])
         return neighbours
 
     def get_next_generation(self) -> Grid:
-        new_grid = self.create_grid(False)
+        new_grid = self.create_grid()
+        for i in range(self.rows):
+            for j in range(self.cols):
+                neighbours = self.get_neighbours((i, j))
+                alive_count = sum(neighbours)
 
-        for r in range(self.rows):
-            for c in range(self.cols):
-                alive = self.curr_generation[r][c]
-                neighbours = sum(self.get_neighbours((r, c)))
-
-                if alive:
-                    new_grid[r][c] = 1 if neighbours in (2, 3) else 0
+                if self.curr_generation[i][j] == 1:
+                    if alive_count == 2 or alive_count == 3:
+                        new_grid[i][j] = 1
+                    else:
+                        new_grid[i][j] = 0
                 else:
-                    new_grid[r][c] = 1 if neighbours == 3 else 0
-
+                    if alive_count == 3:
+                        new_grid[i][j] = 1
+                    else:
+                        new_grid[i][j] = 0
         return new_grid
 
     def step(self) -> None:
@@ -70,6 +78,8 @@ class GameOfLife:
 
     @property
     def is_max_generations_exceeded(self) -> bool:
+        if self.max_generations is None:
+            return False
         return self.generations >= self.max_generations
 
     @property
@@ -78,17 +88,22 @@ class GameOfLife:
 
     @staticmethod
     def from_file(filename: pathlib.Path) -> "GameOfLife":
-        with open(filename) as f:
-            lines = [list(map(int, line.strip())) for line in f if line.strip()]
+        with open(filename, "r") as f:
+            lines = [line.strip() for line in f if line.strip()]
 
         rows = len(lines)
         cols = len(lines[0])
 
         game = GameOfLife((rows, cols), randomize=False)
-        game.curr_generation = lines
+
+        for i in range(rows):
+            for j in range(cols):
+                game.curr_generation[i][j] = int(lines[i][j])
+
         return game
 
     def save(self, filename: pathlib.Path) -> None:
         with open(filename, "w") as f:
             for row in self.curr_generation:
-                f.write("".join(map(str, row)) + "\n")
+                line = "".join(str(cell) for cell in row)
+                f.write(line + "\n")
